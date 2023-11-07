@@ -1,0 +1,24 @@
+version: 1
+disable_existing_loggers: False
+formatters:
+  simple:
+    format: '%(asctime)s %(levelname)-8s %(name)-12s %(lineno)-4d %(message)s'
+  thread_based:
+    format: "%(asctime)s %(levelname)-8s %(name)-12s %(lineno)-4d [%(threadName)s] %(message)s"
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+  file:
+    class: logging.handlers.TimedRotatingFileHandler
+    filename: ./log/application.log
+    level: INFO
+    formatter: simple
+    encoding: UTF-8
+    when: d
+    interval: 1
+    backupCount: 30
+root:
+  level: INFO
+  handlers: [file, console]

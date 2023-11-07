@@ -1,0 +1,82 @@
+arch:
+  type: TransformerLMHeadModel
+  args:
+    transformer_config:
+      type: TransformerDecoderOnlyModel
+      args:
+        embed_config:
+          type: TransformerEmbedding
+          args:
+            n_embed: ~
+            n_vocab: 50258
+            n_pos: 1024
+            p_drop_embed: 0.1
+        decoder_config:
+          type: TransformerDecoderBlock
+          args:
+            attn_config:
+              type: MultiHeadKeyValueAttention
+              args:
+                n_embed: ~
+                n_pos: 1024
+                n_head: ~
+                head_size: ~
+                p_drop_attn: 0.1
+                p_drop_resid: 0.1
+                bias_attn: True
+                bias_proj: True
+                cross_attn: False
+                scale_dot_product: True
+                scale_layer_wise: False
+            mlp_config:
+              type: TransformerMLP
+              args:
+                n_embed: ~
+                n_inner: ~
+                act_fn:
+                  type: NewGELUActivation
+                  args: ~
+                p_drop_mlp: 0.1
+            n_embed: ~
+            ln_eps: 1.0e-5
+        n_embed: ~
+        n_layer: ~
+        ln_eps: 1.0e-5
+    lm_head_config:
+      type: TransformerLMHead
+      args:
+        n_vocab: 50258
+        n_embed: ~
+        do_transform: False
+
+models:
+  gpt2-tiny:
+    n_embed: 128
+    n_layer: 2
+    n_head: 2
+    head_size: 64
+    n_inner: 512
+  gpt2:
+    n_embed: 768
+    n_layer: 12
+    n_head: 12
+    head_size: 64
+    n_inner: 3072
+  gpt2-medium:
+    n_embed: 1024
+    n_layer: 24
+    n_head: 16
+    head_size: 64
+    n_inner: 4096
+  gpt2-large:
+    n_embed: 1280
+    n_layer: 36
+    n_head: 20
+    head_size: 64
+    n_inner: 5120
+  gpt2-xl:
+    n_embed: 1600
+    n_layer: 48
+    n_head: 25
+    head_size: 64
+    n_inner: 6400

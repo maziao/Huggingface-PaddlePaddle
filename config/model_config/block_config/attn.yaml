@@ -1,0 +1,31 @@
+MultiHeadKeyValueAttention:
+  config_class: AttentionConfig
+  args:
+    n_embed: ~
+    n_pos: ~
+    n_head: ~
+    head_size: ~
+    act_fn: ~
+    p_drop_attn: ~
+    p_drop_resid: ~
+    bias_attn: ~
+    bias_proj: ~
+    cross_attn: ~
+    scale_dot_product: ~
+    scale_layer_wise: ~
+
+LlamaAttention:
+  config_class: AttentionConfig
+  args:
+    n_embed: ~
+    n_pos: ~
+    n_head: ~
+    head_size: ~
+    act_fn: ~
+    p_drop_attn: ~
+    p_drop_resid: ~
+    bias_attn: ~
+    bias_proj: ~
+    cross_attn: ~
+    scale_dot_product: ~
+    scale_layer_wise: ~

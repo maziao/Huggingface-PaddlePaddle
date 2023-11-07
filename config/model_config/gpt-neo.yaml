@@ -1,0 +1,45 @@
+model_arch:
+  type: GPT2LMHeadModelConfig
+  args:
+    transformer_config:
+      type: GPT2Config
+      args:
+        embed_config:
+          type: TransformerEmbeddingConfig
+          args:
+            n_embed: 2048
+            n_vocab: 50257
+            n_pos: 2048
+            p_drop_embed: 0.1
+        decoder_config:
+          type: TransformerDecoderBlockConfig
+          args:
+            attn_config:
+              type: AttentionConfig
+              args:
+                n_embed: 2048
+                n_pos: 2048
+                n_head: 16
+                head_size: 128
+                act_fn: relu
+                p_drop_attn: 0.0
+                p_drop_resid: 0.0
+                bias_attn: False
+                bias_proj: True
+                cross_attn: False
+                scale_dot_product: True
+                scale_layer_wise: False
+            mlp_config:
+              type: MLPConfig
+              args:
+                n_embed: 2048
+                n_inner: 3072
+                act_fn: gelu_new
+                p_drop_mlp: 0.0
+            n_embed: 2048
+            ln_eps: 0.00001
+        n_embed: 2048
+        n_layer: 24
+        ln_eps: 0.00001
+    n_embed: 2048
+    n_vocab: 50257

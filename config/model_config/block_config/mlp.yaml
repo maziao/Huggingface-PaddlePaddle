@@ -1,0 +1,15 @@
+TransformerMLP:
+  config_class: MLPConfig
+  args:
+    n_embed: ~
+    n_inner: ~
+    act_fn: ~
+    p_drop_mlp: ~
+
+LlamaMLP:
+  config_class: MLPConfig
+  args:
+    n_embed: ~
+    n_inner: ~
+    act_fn: ~
+    p_drop_mlp: ~

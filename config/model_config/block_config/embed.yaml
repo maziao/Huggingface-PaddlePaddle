@@ -1,0 +1,7 @@
+TransformerEmbedding:
+  config_class: TransformerEmbeddingConfig
+  args:
+    n_embed: ~
+    n_vocab: ~
+    n_pos: ~
+    p_drop_embed: ~

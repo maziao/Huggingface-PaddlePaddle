@@ -1,0 +1,7 @@
+TransformerDecoderBlock:
+  config_class: TransformerDecoderBlockConfig
+  args:
+    attn_config: ~
+    mlp_config: ~
+    n_embed: ~
+    ln_eps: 1.0e-5
