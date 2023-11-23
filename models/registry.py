@@ -1,4 +1,5 @@
 from utils.registry import Registry, build_from_config, RegistryList
+
 ACTIVATION = Registry('activation')
 ATTENTION = Registry('attention')
 DECODER_BLOCK = Registry('decoder_block')
@@ -14,9 +15,9 @@ CLS_HEAD_MODEL = Registry('cls_head_model')
 DOUBLE_HEAD_MODEL = Registry('double_head_model')
 CRITERION = Registry('criterion')
 MODULE = RegistryList(name='module', registries=[ACTIVATION, ATTENTION,
-    DECODER_BLOCK, EMBEDDING, ENCODER_BLOCK, MLP, MODEL_HEAD,
-    ENCODER_ONLY_MODEL, DECODER_ONLY_MODEL, ENCODER_DECODER_MODEL,
-    LM_HEAD_MODEL, CLS_HEAD_MODEL, DOUBLE_HEAD_MODEL, CRITERION])
+                                                 DECODER_BLOCK, EMBEDDING, ENCODER_BLOCK, MLP, MODEL_HEAD,
+                                                 ENCODER_ONLY_MODEL, DECODER_ONLY_MODEL, ENCODER_DECODER_MODEL,
+                                                 LM_HEAD_MODEL, CLS_HEAD_MODEL, DOUBLE_HEAD_MODEL, CRITERION])
 
 
 def build_activation(config):
@@ -69,3 +70,7 @@ def build_cls_head_model(config):
 
 def build_double_head_model(config):
     return build_from_config(config, DOUBLE_HEAD_MODEL)
+
+
+def build_criterion(config):
+    return build_from_config(config, CRITERION)

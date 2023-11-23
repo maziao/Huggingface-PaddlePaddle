@@ -1,6 +1,7 @@
 import inspect
 from typing import List
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -100,22 +101,20 @@ def build_from_config(cfg, registry, default_args=None):
     if isinstance(obj_type, str):
         obj_type = registry.get(obj_type)
         if obj_type is None:
-            raise KeyError('{} is not in the {} registry'.format(obj_type,
-                registry.name))
+            raise KeyError('{} is not in the {} registry'.format(obj_type, registry.name))
     elif not inspect.isclass(obj_type):
-        raise TypeError('type must be a str or valid type, but got {}'.
-            format(type(obj_type)))
+        raise TypeError('type must be a str or valid type, but got {}'.format(type(obj_type)))
     return obj_type(cfg)
 
 
 class RegistryList:
 
-    def __init__(self, name, registries: List[Registry]=None):
+    def __init__(self, name, registries: List[Registry] = None):
         self._name = name
         self._registries = registries
 
     @property
-    def name(self) ->str:
+    def name(self) -> str:
         return self._name
 
     def add_registry(self, registry: Registry):
@@ -127,13 +126,13 @@ class RegistryList:
                 return registry
         return None
 
-    def get_module(self, module_name: str, registry_name: str=None):
+    def get_module(self, module_name: str, registry_name: str = None):
         if registry_name is not None:
             registry = self.get_registry(registry_name)
             if registry is None:
                 logger.warning(
                     f'Registry {registry_name} is not found. Try to find {module_name} in the whole registry list.'
-                    )
+                )
             else:
                 module = registry.get(module_name)
                 return module

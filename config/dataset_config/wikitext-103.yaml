@@ -1,0 +1,7 @@
+arch:
+  type: Wikitext103Dataset
+  args:
+    tokenizer: ~
+    split: ~
+    cache_dir: /home/mza/datasets/wikitext-103
+    max_len: 512

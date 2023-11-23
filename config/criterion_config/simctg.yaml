@@ -1,0 +1,4 @@
+arch:
+  type: SimCTGCriterion
+  args:
+    margin: 0.5

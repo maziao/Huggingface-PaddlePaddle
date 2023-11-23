@@ -1,15 +1,11 @@
 import json
-
+import os.path
 import numpy as np
-import paddle
 from tqdm import trange
-from datasets import load_dataset
 from paddle.io import Dataset
 from transformers import AutoTokenizer
-# from paddle.static.nn import sequence_pad
-from paddle.static.nn import sequence_pad
-from ..utils import generate_mask
 from dataset.registry import NLP_DATASET
+from dataset import generate_mask, pad_sequence
 
 
 @NLP_DATASET.register_module
@@ -17,13 +13,12 @@ class CNNDailyMailDataset(Dataset):
     def __init__(self, tokenizer, split, args):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-        self.tokenizer.add_tokens(['[SEP]'])
         self.tokenizer.pad_token = self.tokenizer.eos_token
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.sep_token_id = self.tokenizer.convert_tokens_to_ids('[SEP]')
 
-        with open(f"{args['cache_dir']}/{split}.json", 'r+') as f:
+        with open(os.path.join(args['cache_dir'], f'{split}.json'), 'r+') as f:
             dataset = json.load(f)
 
         self.data = []
@@ -43,10 +38,23 @@ class CNNDailyMailDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, i):
-        return np.array(self.data[i][:-1]), np.array(self.data[i][1:])
+        return {
+            'input_ids': np.array(self.data[i][:-1]),
+            'labels': np.array(self.data[i][1:]),
+            'attention_mask': generate_mask(np.array(self.data[i][:-1]), pad_token_idx=self.tokenizer.eos_token_id)
+        }
 
-    def collate(self, batch):
-        input_ids = sequence_pad(batch, pad_value=self.tokenizer.pad_token_id)
+    def collate_fn(self, batch):
+        input_ids = pad_sequence(
+            [sample['input_ids'] for sample in batch],
+            batch_first=True,
+            padding_value=self.tokenizer.pad_token_id
+        )
+        labels = pad_sequence(
+            [sample['labels'] for sample in batch],
+            batch_first=True,
+            padding_value=self.tokenizer.pad_token_id
+        )
         mask = generate_mask(input_ids, pad_token_idx=self.tokenizer.eos_token_id)
-        encoded_result = {'input_ids': input_ids, 'attention_mask': mask}
+        encoded_result = {'input_ids': input_ids, 'labels': labels, 'attention_mask': mask}
         return encoded_result

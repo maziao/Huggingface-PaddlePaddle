@@ -1,0 +1,5 @@
+arch:
+  type: DITTOCriterion
+  args:
+    sequence_tune_rate: 0.5
+    rep_reduce_gamma: 0.5

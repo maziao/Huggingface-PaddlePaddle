@@ -1,3 +1,5 @@
+import os.path
+
 import paddle
 from typing import Any, Optional, Tuple
 from dataclasses import dataclass
@@ -68,7 +70,7 @@ class TransformerLMHeadModel(paddle.nn.Layer):
         )
 
     def from_pretrained(self, pretrained_model_path: str):
-        state_dict = paddle.load(pretrained_model_path)
+        state_dict = paddle.load(os.path.join(pretrained_model_path, 'paddle_model.pdparams'))
 
         has_lm_head = False
         token_embed_key = None

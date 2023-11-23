@@ -1,3 +1,6 @@
+import os.path
+
+import yaml
 from dataclasses import dataclass
 
 
@@ -18,7 +21,7 @@ class BaseConfig:
         return main_str
 
     @staticmethod
-    def _add_indent(s_, indent: int=2):
+    def _add_indent(s_, indent: int = 2):
         s = s_.split('\n')
         if len(s) == 1:
             return s_
@@ -27,3 +30,28 @@ class BaseConfig:
         s = '\n'.join(s)
         s = first + '\n' + s
         return s
+
+    def to_dict(self):
+        config = self._to_dict_recursively()
+        return {'arch': config}
+
+    def _to_dict_recursively(self):
+        config = dict()
+        for key, value in self.__dict__.items():
+            if key != 'type':
+                if isinstance(value, BaseConfig):
+                    config[key] = value._to_dict_recursively()
+                else:
+                    config[key] = value
+        return {
+            'type': self.__dict__['type'],
+            'args': config
+        }
+
+    def save_as_yaml(self, path):
+        config = self.to_dict()
+        with open(path, 'w+') as file:
+            yaml.dump(config, file, sort_keys=False)
+
+    def save_pretrained(self, path):
+        self.save_as_yaml(os.path.join(path, 'config.yaml'))

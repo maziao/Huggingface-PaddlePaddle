@@ -5,7 +5,7 @@ arch:
       type: TransformerDecoderOnlyModel
       args:
         embed_config:
-          type: TransformerEmbedding
+          type: OPTEmbedding
           args:
             p_drop_embed: 0.1
         decoder_config:
@@ -19,13 +19,13 @@ arch:
                 bias_attn: True
                 bias_proj: True
                 cross_attn: False
-                scale_dot_product: True
+                scale_dot_product: False
                 scale_layer_wise: False
             mlp_config:
               type: TransformerMLP
               args:
                 act_fn:
-                  type: NewGELUActivation
+                  type: ReLU
                   args: {}
                 p_drop_mlp: 0.1
     lm_head_config:
@@ -34,45 +34,15 @@ arch:
         do_transform: False
 
 models:
-  gpt2-tiny:
-    n_embed: 128
-    n_layer: 2
-    n_head: 2
-    head_size: 64
-    n_inner: 512
-  gpt2:
+  opt-125m:
     n_embed: 768
     n_layer: 12
     n_head: 12
     head_size: 64
     n_inner: 3072
-  gpt2-medium:
-    n_embed: 1024
-    n_layer: 24
-    n_head: 16
-    head_size: 64
-    n_inner: 4096
-  gpt2-large:
-    n_embed: 1280
-    n_layer: 36
-    n_head: 20
-    head_size: 64
-    n_inner: 5120
-  gpt2-xl:
-    n_embed: 1600
-    n_layer: 48
-    n_head: 25
-    head_size: 64
-    n_inner: 6400
-  bloom-560m:
-    n_vocab: 250880
-    n_embed: 1024
-    n_layer: 24
-    n_head: 16
-    head_size: 64
-    n_inner: 4096
 
 global_params:
-  n_vocab: 50257
-  n_pos: 1024
+  n_vocab: 50272
+  n_pos: 2048
   ln_eps: 1.0e-5
+  perform_query_scaling: True

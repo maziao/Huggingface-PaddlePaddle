@@ -1,12 +1,15 @@
 import paddle
-import torch
+import os.path
+import argparse
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def transform_gpt2(state_dict):
     new_state_dict = dict()
-    print(state_dict.keys())
     for key, value in state_dict.items():
         split_key = key.split('.')[1:]
+        new_key = None
+
         if split_key[0] == 'wte':
             new_key = f'transformer.embed.token_embed.{split_key[1]}'
         elif split_key[0] == 'wpe':
@@ -36,15 +39,25 @@ def transform_gpt2(state_dict):
         else:
             continue
 
-        # if split_key[-1] == 'weight' and split_key[0] not in ['wte', 'wpe'] and len(value.shape) != 1:
-        #     value = value.T
         new_state_dict[new_key] = paddle.Tensor(value.numpy())
+
     for key, value in new_state_dict.items():
         print(key, value.shape)
-    paddle.save(obj=new_state_dict, path='/home/mza/model-zoo/paddle/gpt2-added-sep.pdparams')
+    return new_state_dict
 
 
 if __name__ == '__main__':
-    state_dict = torch.load(
-        '/home/mza/model-zoo/gpt2-added-sep/gpt2/pytorch_model.bin')
-    transform_gpt2(state_dict)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--hf-repo', type=str, default='gpt2')
+    parser.add_argument('--pd-repo', type=str)
+    args = parser.parse_args()
+
+    print(f"[!] Loading tokenizer from {args.hf_repo} ...")
+    tokenizer = AutoTokenizer.from_pretrained(args.hf_repo, use_fast=False)
+    print(f"[!] Loading pretrained model from {args.hf_repo} ...")
+    hf_model = AutoModelForCausalLM.from_pretrained(args.hf_repo)
+    print(f"[!] Perform transformation ...")
+    pd_state_dict = transform_gpt2(hf_model.state_dict())
+    paddle.save(obj=pd_state_dict, path=os.path.join(args.pd_repo, 'paddle_model.pdparams'))
+    tokenizer.save_pretrained(args.pd_repo)
+    print(f"[!] Transformation completed.")

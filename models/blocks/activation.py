@@ -248,3 +248,66 @@ class Tanh(Activation):
 
     def forward(self, hidden_states: paddle.Tensor) -> paddle.Tensor:
         return paddle.nn.functional.tanh(hidden_states)
+
+
+def bloom_gelu_forward(x: paddle.Tensor) -> paddle.Tensor:
+    """
+    Custom bias GELU function. Adapted from Megatron-DeepSpeed code. Here we use a simple implementation (inference) to
+    make the model jitable.
+
+    Args:
+        x (`torch.tensor`, *required*):
+            input hidden states
+    """
+    return x * 0.5 * (1.0 + paddle.nn.functional.tanh(x=0.79788456 * x * (1 + 0.044715 * x * x)))
+
+
+def bloom_gelu_back(g: paddle.Tensor, x: paddle.Tensor) -> paddle.Tensor:
+    """
+    gradient of tanh approximation of gelu gradient of actual gelu is: 0.5 * (1. + torch.erf(x * 0.70710678)) +
+    0.3989423 * x * torch.exp(-0.5 * x * x)
+
+    Args:
+        g (`torch.tensor`, *required*):
+            gradient output tensor
+        x (`torch.tensor`, *required*):
+            input tensor
+    """
+    x = x[0]
+    tanh_out = paddle.nn.functional.tanh(x=0.79788456 * x * (1 + 0.044715 * x * x))
+    ff = 0.5 * x * ((1 - tanh_out * tanh_out) * (0.79788456 + 0.1070322243 * x * x)) + 0.5 * (1 + tanh_out)
+    return ff * g
+
+
+class GeLUFunction(paddle.autograd.PyLayer):
+
+    @staticmethod
+    def forward(ctx, input: paddle.Tensor) -> paddle.Tensor:
+        ctx.save_for_backward(input)
+        return bloom_gelu_forward(input)
+
+    @staticmethod
+    def backward(ctx, grad_output: paddle.Tensor) -> paddle.Tensor:
+        input, = ctx.saved_tensor()
+        tmp = bloom_gelu_back(grad_output, input)
+        return tmp
+
+
+@ACTIVATION.register_module
+class BloomGelu(Activation):
+    """
+    BloomBiasGelu wrapper function that make use of the simple function on inference mode to make the model
+    torchscriptable and use the autograd function in training mode to get the accurate results of the gradients Partly
+    copied from Megatron-DeepSpeed code and adapted for our needs
+
+    See here why autograd functions are not torchscriptable: https://github.com/pytorch/pytorch/issues/22329
+    """
+
+    def __init__(self, config: ActivationConfig):
+        super().__init__(config)
+
+    def forward(self, x: paddle.Tensor) -> paddle.Tensor:
+        if self.training:
+            return GeLUFunction.apply(x)
+        else:
+            return bloom_gelu_forward(x)

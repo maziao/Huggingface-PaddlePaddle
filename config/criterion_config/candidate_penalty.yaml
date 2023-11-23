@@ -1,0 +1,4 @@
+arch:
+  type: CandidatePenaltyCriterion
+  args:
+    rank_alpha: 1.0

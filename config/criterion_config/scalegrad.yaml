@@ -1,0 +1,4 @@
+arch:
+  type: ScaleGradCriterion
+  args:
+    gamma: 0.2

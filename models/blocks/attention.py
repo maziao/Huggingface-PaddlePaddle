@@ -1,8 +1,12 @@
+import math
 import paddle
+import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from config.base import BaseConfig
 from models.registry import ATTENTION
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -18,6 +22,11 @@ class AttentionConfig(BaseConfig):
     cross_attn: bool = False
     scale_dot_product: bool = True
     scale_layer_wise: bool = False
+    layer_idx: int = None
+    perform_linear_bias: bool = False
+    perform_bloom_split_head: bool = False
+    perform_query_scaling: bool = False
+    attn_window_size: int = None
 
 
 @dataclass
@@ -37,15 +46,21 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
     """
     config_class = AttentionConfig
 
-    def __init__(self, config: AttentionConfig, layer_idx: int = None):
+    def __init__(self, config: AttentionConfig):
         super().__init__()
         self.config = config
-        self.layer_idx = layer_idx
-        self.register_buffer(
-            name='bias',
-            tensor=paddle.tril(
-                paddle.ones(shape=(config.n_pos, config.n_pos), dtype='bool')).reshape([1, 1, config.n_pos, config.n_pos])
-        )
+        bias = paddle.tril(
+            paddle.ones(
+                shape=(config.n_pos, config.n_pos),
+                dtype='bool'
+            )
+        ).reshape([1, 1, config.n_pos, config.n_pos])
+        if isinstance(config.attn_window_size, int) and config.attn_window_size > 0:
+            logger.info(f"{self.__class__} (no: {config.layer_idx}) perform local attention of window size "
+                        f"{config.attn_window_size}.")
+            bias = paddle.bitwise_xor(bias, paddle.tril(bias, -config.attn_window_size))
+        self.bias = bias
+
         if config.cross_attn:
             self.q_attn = paddle.nn.Linear(
                 in_features=config.n_embed,
@@ -70,8 +85,17 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
         )
         self.attn_dropout = paddle.nn.Dropout(p=config.p_drop_attn)
         self.resid_dropout = paddle.nn.Dropout(p=config.p_drop_resid)
+        self.inv_norm_factor = 1.0 / math.sqrt(config.head_size)
 
-    def _attn(self, query, key, value, attention_mask=None, head_mask=None):
+    def _attn(
+            self,
+            query: paddle.Tensor,
+            key: paddle.Tensor,
+            value: paddle.Tensor,
+            attention_mask: paddle.Tensor = None,
+            head_mask: paddle.Tensor = None,
+            linear_bias: paddle.Tensor = None
+    ):
         """
         Attention operation in an attention block, including attention masking and head masking.
 
@@ -86,23 +110,43 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
         Return:
             (attn_output, attn_weights):
         """
+
+        # Basic attention weights calculation
         attn_weights = paddle.matmul(x=query, y=key.transpose(perm=[0, 1, 3, 2]))
+
+        # Perform ALiBi to basic attention weights (According to paper 'Train Short, Test Long: Attention with
+        # Linear Biases Enables Input Length Extrapolation' - https://arxiv.org/pdf/2108.12409.pdf)
+        if self.config.perform_linear_bias:
+            if linear_bias is not None:
+                attn_weights = paddle.add(linear_bias, self.inv_norm_factor * attn_weights)
+            else:
+                logger.warn(
+                    f'Argument `perform_linear_bias` has been set `True` in `AttentionConfig`, while `linear_bias` '
+                    f'was not provided when calling `forward` method in `MultiHeadKeyValueAttention` block. Thus '
+                    f'ALiBi will not be performed. If it is truly needed, please provide `linear_bias` when calling '
+                    f'`forward` method of `MultiHeadKeyValueAttention` block instead.'
+                )
+
+        # Perform scale dot product
         if self.config.scale_dot_product:
             attn_weights = attn_weights / paddle.full(
                 shape=[],
                 fill_value=value.shape[-1] ** 0.5,
                 dtype=attn_weights.dtype
             )
+
+        # Scale attention weights by layer id
         if self.config.scale_layer_wise:
-            if self.layer_idx is not None:
-                attn_weights = attn_weights / float(self.layer_idx + 1)
+            if self.config.layer_idx is not None:
+                attn_weights = attn_weights / float(self.config.layer_idx + 1)
             else:
-                print(
+                logger.warn(
                     f'Argument `scale_layer_wise` has been set `True` in `AttentionConfig`, while `layer_idx` was not '
                     f'provided when initializing `MultiHeadKeyValueAttention` block. Thus layer-wise scaling will not '
                     f'be performed. If it is truly needed, please provide `layer_idx` when initializing '
                     f'`MultiHeadKeyValueAttention` block instead.'
                 )
+
         """
         Perform causal mask in self-attention to prevent prefix from being aware of the follow-up context.
             Example: 
@@ -118,7 +162,15 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
         """
         if not self.config.cross_attn:
             query_length, key_length = query.shape[-2], key.shape[-2]
-            causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
+            if self.config.n_pos != 0:
+                causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
+            else:
+                causal_mask = paddle.tril(
+                    paddle.ones(
+                        shape=attn_weights.shape[-2:],
+                        dtype='bool'
+                    )
+                ).reshape([1, 1] + attn_weights.shape[-2:])
             mask_value = paddle.finfo(attn_weights.dtype).min
             mask_value = paddle.full(shape=[], fill_value=mask_value, dtype=attn_weights.dtype)
             attn_weights = paddle.where(condition=causal_mask, x=attn_weights, y=mask_value)
@@ -139,16 +191,38 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
 
     def _split_heads(self, tensor):
         """
-        Splits n_embed dim into n_head and head_size.
+        Splits 3 * n_embed into 3 n_head * head_size.
 
         Args:
-            tensor: raw attn_weights, size [batch_size, seq_len, n_embed]
+            tensor: fused query, key, value tensor, size [batch_size, seq_len, 3 * n_embed]
         Return:
-            attn_weights with heads split, size [batch_size, n_head, seq_len, head_size]
+            query, key, value tensor, size [batch_size, n_head, seq_len, head_size]
         """
+        query, key, value = tensor.split(3, axis=2)
         new_shape = tensor.shape[:-1] + [self.config.n_head, self.config.head_size]
+        query = query.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        key = key.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        value = value.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        return query, key, value
+
+    def _split_heads_bloom(self, tensor):
+        """
+        Splits 3 * n_embed into 3 n_head * head_size (BigScience Bloom approach).
+
+        Args:
+            tensor: fused query, key, value tensor, size [batch_size, seq_len, 3 * n_embed]
+        Return:
+            query, key, value tensor, size [batch_size, n_head, seq_len, head_size]
+        """
+        new_shape = tensor.shape[:-1] + [self.config.n_head, 3, self.config.head_size]
         tensor = tensor.reshape(new_shape)
-        return tensor.transpose(perm=[0, 2, 1, 3])
+        query, key, value = tensor[..., 0, :], tensor[..., 1, :], tensor[..., 2, :]
+
+        query = query.transpose(perm=[0, 2, 1, 3])
+        key = key.transpose(perm=[0, 2, 1, 3])
+        value = value.transpose(perm=[0, 2, 1, 3])
+
+        return query, key, value
 
     def _merge_heads(self, tensor):
         """
@@ -169,34 +243,39 @@ class MultiHeadKeyValueAttention(paddle.nn.Layer):
             layer_past: Optional[Tuple[paddle.Tensor, paddle.Tensor]] = None,
             attention_mask: Optional[paddle.Tensor] = None,
             head_mask: Optional[paddle.Tensor] = None,
+            linear_bias: Optional[paddle.Tensor] = None,
             encoder_hidden_states: Optional[paddle.Tensor] = None,
             encoder_attention_mask: Optional[paddle.Tensor] = None,
             use_cache: Optional[bool] = False,
             output_attentions: Optional[bool] = False
     ) -> MultiHeadKeyValueAttentionOutput:
-        if encoder_hidden_states is not None:
-            assert self.config.cross_attn, (f'`forward` method in `MultiHeadKeyValueAttention` got non-null '
-                                            f'`encoder_hidden_states` argument but `cross_attn` in `AttentionConfig` '
-                                            f'was set to `False`. If cross attention is needed, please set it to '
-                                            f'`True` instead.')
-            query = self.q_attn(hidden_states)
-            key, value = self.c_attn(encoder_hidden_states).split(self.config.n_embed, dim=2)
-            attention_mask = encoder_attention_mask
+        fused_qkv = self.c_attn(hidden_states)
+
+        if not self.config.perform_bloom_split_head:
+            query, key, value = self._split_heads(fused_qkv)
         else:
-            # print(self.c_attn(hidden_states))
-            # query, key, value = self.c_attn(hidden_states).split(self.config.n_embed, dim=2)
-            query, key, value = self.c_attn(hidden_states).split(3, axis=2)
-        query = self._split_heads(query)
-        key = self._split_heads(key)
-        value = self._split_heads(value)
+            query, key, value = self._split_heads_bloom(fused_qkv)
+        if self.config.perform_query_scaling:
+            query *= self.config.head_size ** -0.5
+
         if layer_past:
             past_key, past_value = layer_past
             key = paddle.concat(x=(past_key, key), axis=-2)
             value = paddle.concat(x=(past_value, value), axis=-2)
-        attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+
+        attn_output, attn_weights = self._attn(
+            query=query,
+            key=key,
+            value=value,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            linear_bias=linear_bias
+        )
+
         attn_output = self._merge_heads(attn_output)
         attn_output = self.c_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
+
         return MultiHeadKeyValueAttentionOutput(
             attn_output=attn_output,
             attn_weights=attn_weights if output_attentions else None,
