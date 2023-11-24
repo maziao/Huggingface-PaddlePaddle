@@ -49,7 +49,7 @@ def test(args):
     dataset_cfg.tokenizer = tokenizer
     dataset_cfg.split = 'valid'
     dataset = build_dataset(dataset_cfg)
-    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=dataset.collate_fn)
+    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=dataset.collate_fn)
 
     """
     Model Instantiation
@@ -67,7 +67,7 @@ def test(args):
     criterion = paddle.nn.CrossEntropyLoss(reduction='none')
 
     """
-    Training Loop
+    Evaluation Loop
     """
     logger.info(f"[!] Start evaluation [!]")
     bar = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -110,11 +110,34 @@ def test(args):
         bar.set_description(f"[!] ppl {round(np.exp(np.mean(loss)), 4)} | acc {round(float(acc), 4)}")
         bar.update(1)
 
+    """
+    Generation
+    """
+    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=dataset.collate_fn)
+    for batch_id, data in enumerate(dataloader):
+        past_key_values = None
+        input_ids = data['input_ids']
+        generated_ids = []
+        for i in range(args.generation_len):
+            output = model(
+                input_ids,
+                past_key_values=past_key_values,
+                output_key_values=True
+            )
+            past_key_values = output.past_key_values
+            input_ids = paddle.argmax(output.logit[:, -1], axis=-1, keepdim=True)
+            generated_ids.append(input_ids)
+        generated_ids = paddle.concat(generated_ids, axis=-1).tolist()
+        for j, sample in enumerate(generated_ids):
+            generated_text = tokenizer.decode(sample, skip_special_tokens=True).replace('\n', ' ')
+            logger.info(f"Batch {batch_id + 1} / {len(dataloader)}: {generated_text}")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='wikitext-103')
-    parser.add_argument('--pretrained-model-path', type=str, default='/home/mza/work-dir/paddle/gpt-neo-125m-temp')
+    parser.add_argument('--pretrained-model-path', type=str, default='/home/mza/model-zoo/paddle/gpt2')
+    parser.add_argument('--generation-len', type=int, default=100)
     parser.add_argument('--log-config', type=str, default='./config/log_config/_base_.yaml')
     args = parser.parse_args()
     test(args)

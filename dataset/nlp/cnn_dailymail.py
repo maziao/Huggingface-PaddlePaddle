@@ -2,37 +2,47 @@ import json
 import os.path
 import numpy as np
 from tqdm import trange
+from typing import Any
 from paddle.io import Dataset
-from transformers import AutoTokenizer
+from dataclasses import dataclass
+from config.base import BaseConfig
 from dataset.registry import NLP_DATASET
 from dataset import generate_mask, pad_sequence
 
 
+@dataclass
+class CNNDailyMailConfig(BaseConfig):
+    tokenizer: Any = None
+    split: str = None
+    cache_dir: str = None
+    context_len: int = None
+    response_len: int = None
+
+
 @NLP_DATASET.register_module
 class CNNDailyMailDataset(Dataset):
-    def __init__(self, tokenizer, split, args):
+    config_class = CNNDailyMailConfig
+
+    def __init__(self, config: CNNDailyMailConfig):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        if self.tokenizer.pad_token_id is None:
-            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        self.tokenizer = config.tokenizer
         self.sep_token_id = self.tokenizer.convert_tokens_to_ids('[SEP]')
 
-        with open(os.path.join(args['cache_dir'], f'{split}.json'), 'r+') as f:
+        with open(os.path.join(config.cache_dir, f'{config.split}.json'), 'r+') as f:
             dataset = json.load(f)
 
         self.data = []
         for idx in trange(1000):
             article, highlight = dataset['article'][idx].strip(), dataset['highlights'][idx].strip()
-            article_ids = self.tokenizer.encode(article)[:args['context_len']]
-            highlight_ids = self.tokenizer.encode(highlight)[:args['response_len']]
-            if split == 'test':
+            article_ids = self.tokenizer.encode(article)[:config.context_len]
+            highlight_ids = self.tokenizer.encode(highlight)[:config.response_len]
+            if config.split == 'test':
                 tokens = [self.tokenizer.eos_token_id] + article_ids + [self.sep_token_id]
             else:
                 tokens = [self.tokenizer.eos_token_id] + article_ids + [self.sep_token_id] + highlight_ids + [
                     self.sep_token_id]
             self.data.append(tokens)
-        print(f"[!] collect {len(self.data)} for {split} set")
+        print(f"[!] collect {len(self.data)} for {config.split} set")
 
     def __len__(self):
         return len(self.data)

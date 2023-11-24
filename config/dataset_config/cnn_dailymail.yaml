@@ -1,4 +1,8 @@
-context_len: 768
-response_len: 128
-dataset_class: CNNDailyMailDataset
-cache_dir: /home/mza/datasets/cnn_dailymail
+arch:
+  type: CNNDailyMailDataset
+  args:
+    tokenizer: ~
+    split: ~
+    cache_dir: /home/mza/datasets/cnn_dailymail
+    context_len: 768
+    response_len: 128

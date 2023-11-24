@@ -3,7 +3,6 @@ import os.path
 import numpy as np
 from tqdm import trange
 from paddle.io import Dataset
-from transformers import AutoTokenizer
 from typing import Any
 from dataclasses import dataclass
 from config.base import BaseConfig
