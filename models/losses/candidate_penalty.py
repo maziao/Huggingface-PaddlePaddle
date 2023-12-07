@@ -47,12 +47,6 @@ class CandidatePenaltyCriterion:
                 values=paddle.Tensor(np.array(1.0, dtype=np.float32)),
                 axis=1
             )
-            # negative_targets = paddle.put_along_axis(
-            #     log_probs,
-            #     indices=ctx_cands,
-            #     values=paddle.Tensor(np.array(1.0, dtype=np.float32)),
-            #     axis=1
-            # )
 
         one_minus_probs = paddle.clip((1.0 - log_probs.exp()), min=1e-5)
 

@@ -1,0 +1,7 @@
+arch:
+  type: UnlikelihoodTrainingSequenceLevelCriterion
+  args:
+    prefix_len: 50
+    continuation_len: 100
+    sequence_ngram_n: 4
+    sequence_tune_rate: 0.5

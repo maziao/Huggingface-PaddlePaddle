@@ -9,12 +9,17 @@ from config.base import BaseConfig
 from dataset.registry import NLP_DATASET
 from dataset import generate_mask, pad_sequence
 
+import logging.config
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Wikitext103Config(BaseConfig):
     tokenizer: Any = None
     split: str = None
     cache_dir: str = None
+    max_sample: int = None
     max_len: int = None
 
 
@@ -28,11 +33,12 @@ class Wikitext103Dataset(Dataset):
 
         with open(os.path.join(config.cache_dir, f'{config.split}.json'), 'r+') as f:
             dataset = json.load(f)
+        dataset = dataset[:config.max_sample]
 
         self.data = []
-        for idx in trange(len(dataset)):
+        for idx in trange(len(dataset), desc=f"Tokenizing wikitext-103 dataset"):
             self.data.append(self.tokenizer(dataset[idx]['text'])['input_ids'][:config.max_len])
-        print(f"[!] collect {len(self.data)} for {config.split} set")
+        logger.info(f"[!] collect {len(self.data)} for {config.split} set")
 
     def __len__(self):
         return len(self.data)

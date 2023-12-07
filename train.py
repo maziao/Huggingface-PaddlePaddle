@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from transformers import AutoTokenizer
 
+from test import eval
 from config import AutoConfig
 from dataset import build_dataset
 from utils.registry import build_from_config
@@ -23,6 +24,9 @@ def train(args):
     if paddle.device.cuda.device_count() >= 1:
         paddle.set_device('gpu:0')
 
+    """
+    Loading Log Config
+    """
     with open(args.log_config) as f:
         log_cfg = yaml.load(f, Loader=yaml.FullLoader)
         logging.config.dictConfig(log_cfg)
@@ -35,7 +39,7 @@ def train(args):
         cfg = AutoConfig.from_pretrained(args.pretrained_model_path)
     else:
         cfg = AutoConfig.from_yaml(args.model_config, model_name=args.model_name)
-    print(cfg)
+    logger.info(cfg)
 
     """
     Loading Tokenizer
@@ -52,14 +56,27 @@ def train(args):
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     """
+    Loading Run Config
+    """
+    logger.info(f"[!] Loading run config from {args.run_config} ...")
+    with open(args.run_config) as f:
+        run_cfg = yaml.load(f, Loader=yaml.FullLoader)
+    logger.info(run_cfg)
+
+    """
     Dataset Preparation
     """
     logger.info(f"[!] Loading dataset ...")
     dataset_cfg = AutoConfig.from_yaml(os.path.join('./config/dataset_config/', f"{args.dataset.lower()}.yaml"))
     dataset_cfg.tokenizer = tokenizer
     dataset_cfg.split = 'valid'
-    dataset = build_dataset(dataset_cfg)
-    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=dataset.collate_fn)
+    dataset_cfg.max_sample = run_cfg['max_steps'] * run_cfg['batch_size']
+    train_dataset = build_dataset(dataset_cfg)
+    train_dataloader = paddle.io.DataLoader(train_dataset, batch_size=run_cfg['batch_size'], shuffle=True,
+                                            collate_fn=train_dataset.collate_fn)
+    dataset_cfg.split = 'valid'
+    valid_dataset = build_dataset(dataset_cfg)
+    valid_dataloader = paddle.io.DataLoader(valid_dataset, batch_size=1, shuffle=False)
 
     """
     Model Instantiation
@@ -79,24 +96,24 @@ def train(args):
     criterion_cfg.pad_token_id = tokenizer.pad_token_id
     if args.criterion == 'DITTO':
         criterion_cfg.end_sentence_decoded = tokenizer('.')['input_ids'][0]
-    print(criterion_cfg)
+    logger.info(criterion_cfg)
     criterion = build_from_config(criterion_cfg, CRITERION)
-    optimizer = paddle.optimizer.Adam(parameters=model.parameters())
+    optimizer = paddle.optimizer.Adam(learning_rate=run_cfg['learning_rate'], parameters=model.parameters())
     scaler = paddle.amp.GradScaler(init_loss_scaling=1024)
 
     """
     Training Loop
     """
     logger.info(f"[!] Start training [!]")
-    for epoch in range(5):
-        bar = tqdm(enumerate(dataloader), total=len(dataloader))
+    current_step = 0
+    progress_bar = tqdm(total=run_cfg['max_steps'])
+    while current_step < run_cfg['max_steps']:
         loss_list = []
         acc_list = []
-        for batch_id, data in bar:
+        for batch_id, data in enumerate(train_dataloader):
             """
             Forward
             """
-            # with paddle.amp.auto_cast(custom_white_list={'elementwise_add'}, level='O1'):
             loss, output = criterion(model, data)
 
             """
@@ -104,7 +121,7 @@ def train(args):
             """
             chosen_tokens = paddle.argmax(output.logit, axis=-1)
             gen_acc = (chosen_tokens.reshape([-1]) == data['labels'].reshape([-1]))
-            valid_mask = (data['labels'] != 50256).reshape([-1])
+            valid_mask = (data['labels'] != tokenizer.pad_token_id).reshape([-1])
             valid_tokens = gen_acc & valid_mask
             acc = valid_tokens.sum().item() / valid_mask.sum().item()
 
@@ -120,16 +137,25 @@ def train(args):
             loss_list.append(float(loss))
             acc_list.append(float(acc))
 
-            if batch_id == len(dataloader) - 1:
-                loss = np.mean(np.array(loss_list))
-                acc = np.mean(np.array(acc_list))
+            progress_bar.update(1)
+            current_step += 1
 
-            bar.set_description(f"[!] Epoch {epoch + 1} / {5} | loss {round(float(loss), 4)} | acc {round(acc, 4)}")
-            bar.update(1)
+            if current_step % run_cfg['log_interval'] == 0:
+                tqdm.write(f"step: {current_step}, loss: {np.mean(loss_list)}, acc: {np.mean(acc_list)}")
+                loss_list.clear()
+                acc_list.clear()
+
+            if current_step % run_cfg['eval_steps'] == 0:
+                eval(model, valid_dataloader, tokenizer)
+
+            if current_step == run_cfg['max_steps']:
+                break
 
     """
     Save checkpoint
     """
+    if args.save_dir is None:
+        args.save_dir = os.path.join(os.environ['HOME'], 'work-dir')
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
     cfg.save_pretrained(args.save_dir)
@@ -140,13 +166,16 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-config', type=str, default='./config/model_config/gpt2.yaml')
-    parser.add_argument('--model-name', type=str, default='gpt2')
-    parser.add_argument('--tokenizer', type=str, default='/home/mza/model-zoo/paddle/gpt2')
-    parser.add_argument('--dataset', type=str, default='wikitext-103')
-    parser.add_argument('--criterion', type=str, default='scalegrad')
-    parser.add_argument('--pretrained-model-path', type=str, default='/home/mza/model-zoo/paddle/gpt2/')
-    parser.add_argument('--save-dir', type=str, default='/home/mza/work-dir/paddle/gpt2')
+    parser.add_argument('--model-config', type=str, default=None)
+    parser.add_argument('--model-name', type=str, default=None)
+    parser.add_argument('--tokenizer', type=str, default=None)
+    parser.add_argument('--dataset', type=str, choices=['wikitext-103', 'cnn_dailymail'])
+    parser.add_argument('--criterion', type=str,
+                        choices=['cross_entropy', 'ditto', 'scalegrad', 'simctg', 'candidate_penalty',
+                                 'unlikelihood_seq'])
+    parser.add_argument('--pretrained-model-path', type=str, default=None)
+    parser.add_argument('--save-dir', type=str, default=None)
     parser.add_argument('--log-config', type=str, default='./config/log_config/_base_.yaml')
+    parser.add_argument('--run-config', type=str, default='./config/run_config/_base_.yaml')
     args = parser.parse_args()
     train(args)
