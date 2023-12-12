@@ -6,6 +6,9 @@ from dataclasses import dataclass
 
 @dataclass
 class BaseConfig:
+    """
+    Base class for all config classes, provide basic methods for serialization, saving, etc.
+    """
     type: str
 
     def __str__(self):
@@ -55,3 +58,11 @@ class BaseConfig:
 
     def save_pretrained(self, path):
         self.save_as_yaml(os.path.join(path, 'config.yaml'))
+
+
+@dataclass
+class PseudoConfig(BaseConfig):
+    """
+    A pseudo config class for those classes who do not have any parameters.
+    """
+    pass

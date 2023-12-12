@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import logging.config
 from config import AutoConfig
-from models.registry import LM_HEAD_MODEL
+from modules.model import LM_HEAD_MODEL
 from utils.registry import build_from_config
 from transformers import AutoTokenizer, AutoModelForCausalLM
 

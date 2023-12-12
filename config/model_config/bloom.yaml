@@ -5,39 +5,45 @@ arch:
       type: TransformerDecoderOnlyModel
       args:
         embed_config:
-          type: TransformerEmbedding
+          type: TransformerEmbeddingBlock
           args:
-            do_ln: True
-            p_drop_embed: 0.1
+            token_embed_config:
+              type: TokenEmbedding
+            ln_config:
+              type: LayerNorm
+            p_drop_embed: 0.0
         decoder_config:
           type: TransformerDecoderBlock
           args:
             attn_config:
               type: MultiHeadKeyValueAttention
               args:
-                p_drop_attn: 0.1
-                p_drop_resid: 0.1
+                p_drop_attn: 0.0
+                p_drop_resid: 0.0
                 bias_attn: True
                 bias_proj: True
                 cross_attn: False
-                scale_dot_product: True
+                scale_dot_product: False
                 scale_layer_wise: False
                 perform_linear_bias: True
-                perform_bloom_split_head: False
+                perform_bloom_split_head: True
             mlp_config:
               type: TransformerMLP
               args:
-                act_fn:
-                  type: BloomGelu
-                  args: {}
-                p_drop_mlp: 0.1
+                act_fn_config:
+                  type: FastGELUActivation
+                p_drop_mlp: 0.0
+            ln_config:
+              type: LayerNorm
+        ln_config:
+          type: LayerNorm
     lm_head_config:
       type: TransformerLMHead
       args:
         do_transform: False
 
 models:
-  bloom-560m:
+  YeungNLP/bloom-396m-zh:
     n_embed: 1024
     n_layer: 24
     n_head: 16
@@ -45,7 +51,7 @@ models:
     n_inner: 4096
 
 global_params:
-  n_vocab: 250880
+  n_vocab: 46145
   n_pos: 0
   perform_linear_bias: True
   perform_bloom_split_head: True

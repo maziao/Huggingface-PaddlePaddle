@@ -25,10 +25,17 @@ python generate_config.py --src-config PATH_TO_SRC_CONFIG --mode-name MODEL_NAME
 
 ### Step 5. Continue training from pretrained checkpoints
 ```commandline
-python train.py --pretrained-model-path TARGET_DIR --save-dir SAVE_DIR
+CUDA_VISIBLE_DEVICES={x} python train.py \
+    --model-config MODEL_CONFIG \
+    --model-name MODEL_NAME \
+    --tokenizer TOKENIZER \
+    --dataset DATASET \
+    --criterion CRITERION \
+    --pretrained-model-path TARGET_DIR \
+    --save-dir SAVE_DIR
 ```
 
 ### Step 6. Evaluation
 ```commandline
-python test.py --pretrained-model-path SAVE_DIR
+CUDA_VISIBLE_DEVICES={x} python test.py --dataset DATASET --pretrained-model-path SAVE_DIR
 ```

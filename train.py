@@ -10,7 +10,7 @@ from test import eval
 from config import AutoConfig
 from dataset import build_dataset
 from utils.registry import build_from_config
-from models.registry import LM_HEAD_MODEL, CRITERION
+from modules.registry import LM_HEAD_MODEL, CRITERION
 
 import logging.config
 
@@ -51,7 +51,10 @@ def train(args):
     else:
         raise ValueError("Please specify the tokenizer to use.")
     logger.info(f"[!] Loading tokenizer from {tokenizer} ...")
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer, use_fast=False)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer, use_fast=False)
+    except ValueError:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -69,7 +72,7 @@ def train(args):
     logger.info(f"[!] Loading dataset ...")
     dataset_cfg = AutoConfig.from_yaml(os.path.join('./config/dataset_config/', f"{args.dataset.lower()}.yaml"))
     dataset_cfg.tokenizer = tokenizer
-    dataset_cfg.split = 'valid'
+    dataset_cfg.split = 'train'
     dataset_cfg.max_sample = run_cfg['max_steps'] * run_cfg['batch_size']
     train_dataset = build_dataset(dataset_cfg)
     train_dataloader = paddle.io.DataLoader(train_dataset, batch_size=run_cfg['batch_size'], shuffle=True,
@@ -99,6 +102,8 @@ def train(args):
     logger.info(criterion_cfg)
     criterion = build_from_config(criterion_cfg, CRITERION)
     optimizer = paddle.optimizer.Adam(learning_rate=run_cfg['learning_rate'], parameters=model.parameters())
+    if run_cfg['amp_level'] == 'O2':
+        model, optimizer = paddle.amp.decorate(models=model, optimizers=optimizer, level='O2')
     scaler = paddle.amp.GradScaler(init_loss_scaling=1024)
 
     """
@@ -114,7 +119,8 @@ def train(args):
             """
             Forward
             """
-            loss, output = criterion(model, data)
+            with paddle.amp.auto_cast(level=run_cfg['amp_level']):
+                loss, output = criterion(model, data)
 
             """
             Calculate accuracy
@@ -141,12 +147,20 @@ def train(args):
             current_step += 1
 
             if current_step % run_cfg['log_interval'] == 0:
-                tqdm.write(f"step: {current_step}, loss: {np.mean(loss_list)}, acc: {np.mean(acc_list)}")
+                # TODO: complete metrics
+                log_dict = {
+                    "step": current_step,
+                    "loss": np.mean(loss_list),
+                    "acc": np.mean(acc_list)
+                }
+                tqdm.write(str(log_dict))
                 loss_list.clear()
                 acc_list.clear()
 
             if current_step % run_cfg['eval_steps'] == 0:
+                model.eval()
                 eval(model, valid_dataloader, tokenizer)
+                model.train()
 
             if current_step == run_cfg['max_steps']:
                 break
@@ -162,6 +176,7 @@ def train(args):
     tokenizer.save_pretrained(args.save_dir)
     model.eval()
     paddle.save(obj=model.state_dict(), path=os.path.join(args.save_dir, 'paddle_model.pdparams'))
+    logger.info(f"Checkpoint saved at {args.save_dir}")
 
 
 if __name__ == '__main__':

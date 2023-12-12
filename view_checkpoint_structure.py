@@ -3,7 +3,7 @@ import paddle
 import argparse
 import logging.config
 from config import AutoConfig
-from models.registry import LM_HEAD_MODEL
+from modules.model import LM_HEAD_MODEL
 from utils.registry import build_from_config
 from transformers import AutoModelForCausalLM
 
@@ -54,7 +54,10 @@ if __name__ == '__main__':
         paddle.set_device('gpu:0')
 
     if args.model_type == 'hf':
-        model = load_hf_model(args.pretrained_model_path).cuda()
+        if args.pretrained_model_path is not None:
+            model = load_hf_model(args.pretrained_model_path).cuda()
+        else:
+            model = load_hf_model(args.model_name).cuda()
         print(model)
         for key, value in model.state_dict().items():
             print(key, value.size())

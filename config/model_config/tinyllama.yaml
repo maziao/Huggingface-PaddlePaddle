@@ -5,51 +5,52 @@ arch:
       type: TransformerDecoderOnlyModel
       args:
         embed_config:
-          type: OPTEmbeddingBlock
+          type: TransformerEmbeddingBlock
           args:
             token_embed_config:
               type: TokenEmbedding
-            pos_embed_config:
-              type: OPTLearnedPositionalEmbedding
             p_drop_embed: 0.1
         decoder_config:
           type: TransformerDecoderBlock
           args:
             attn_config:
-              type: MultiHeadKeyValueAttention
+              type: LlamaAttention
               args:
-                p_drop_attn: 0.1
-                p_drop_resid: 0.1
-                bias_attn: True
-                bias_proj: True
+                p_drop_attn: 0.0
+                p_drop_resid: 0.0
+                bias_attn: False
+                bias_proj: False
                 cross_attn: False
-                scale_dot_product: False
+                scale_dot_product: True
                 scale_layer_wise: False
+                rope_config:
+                  type: RotaryPositionEmbedding
             mlp_config:
-              type: TransformerMLP
+              type: LlamaMLP
               args:
+                n_embed: ~
+                n_inner: ~
                 act_fn_config:
-                  type: ReLU
-                p_drop_mlp: 0.1
+                  type: SiLUActivation
             ln_config:
-              type: LayerNorm
+              type: LlamaRMSNorm
         ln_config:
-          type: LayerNorm
+          type: LlamaRMSNorm
     lm_head_config:
       type: TransformerLMHead
       args:
         do_transform: False
 
 models:
-  opt-125m:
-    n_embed: 768
-    n_layer: 12
-    n_head: 12
+  TinyLlama-1.1B:
+    n_embed: 2048
+    n_layer: 22
+    n_head: 32
+    n_key_value_head: 4
     head_size: 64
-    n_inner: 3072
+    n_inner: 5632
 
 global_params:
-  n_vocab: 50272
+  n_vocab: 32000
   n_pos: 2048
-  ln_eps: 1.0e-5
-  perform_query_scaling: True
+  ln_eps: 1.0e-06

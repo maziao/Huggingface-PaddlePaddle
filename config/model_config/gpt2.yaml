@@ -5,8 +5,12 @@ arch:
       type: TransformerDecoderOnlyModel
       args:
         embed_config:
-          type: TransformerEmbedding
+          type: TransformerEmbeddingBlock
           args:
+            token_embed_config:
+              type: TokenEmbedding
+            pos_embed_config:
+              type: PositionEmbedding
             p_drop_embed: 0.1
         decoder_config:
           type: TransformerDecoderBlock
@@ -24,10 +28,13 @@ arch:
             mlp_config:
               type: TransformerMLP
               args:
-                act_fn:
+                act_fn_config:
                   type: NewGELUActivation
-                  args: {}
                 p_drop_mlp: 0.1
+            ln_config:
+              type: LayerNorm
+        ln_config:
+          type: LayerNorm
     lm_head_config:
       type: TransformerLMHead
       args:
@@ -64,13 +71,6 @@ models:
     n_head: 25
     head_size: 64
     n_inner: 6400
-  bloom-560m:
-    n_vocab: 250880
-    n_embed: 1024
-    n_layer: 24
-    n_head: 16
-    head_size: 64
-    n_inner: 4096
 
 global_params:
   n_vocab: 50257

@@ -59,7 +59,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f"[!] Loading tokenizer from {args.hf_repo} ...")
-    tokenizer = AutoTokenizer.from_pretrained(args.hf_repo, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(args.hf_repo, use_fast=True)
     print(f"[!] Loading pretrained model from {args.hf_repo} ...")
     hf_model = AutoModelForCausalLM.from_pretrained(args.hf_repo)
     print(f"[!] Perform transformation ...")

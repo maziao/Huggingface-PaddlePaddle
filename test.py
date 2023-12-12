@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 
 from config import AutoConfig
 from dataset import build_dataset
-from models.registry import LM_HEAD_MODEL
+from modules.model import LM_HEAD_MODEL
 from utils.registry import build_from_config
 
 import logging.config
@@ -74,7 +74,10 @@ def test(args):
     """
     Loading Tokenizer
     """
-    tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path, use_fast=False)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path, use_fast=False)
+    except ValueError:
+        tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -86,7 +89,7 @@ def test(args):
     dataset_cfg.tokenizer = tokenizer
     dataset_cfg.split = 'valid'
     dataset = build_dataset(dataset_cfg)
-    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=dataset.collate_fn)
+    dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=False)
 
     """
     Model Instantiation
