@@ -9,7 +9,7 @@ arch:
           args:
             token_embed_config:
               type: TokenEmbedding
-            p_drop_embed: 0.1
+            p_drop_embed: 0.0
         decoder_config:
           type: TransformerDecoderBlock
           args:
@@ -53,4 +53,4 @@ models:
 global_params:
   n_vocab: 32000
   n_pos: 2048
-  ln_eps: 1.0e-06
+  ln_eps: 1.0e-05
