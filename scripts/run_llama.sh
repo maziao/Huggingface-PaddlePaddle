@@ -3,9 +3,9 @@
 # ========== metadata ========== #
 cuda=$1
 model=TinyLlama-1.1B
-dataset=$3
-work_dir=$4
-pretrained_model=$5
+dataset=$2
+work_dir=$3
+pretrained_model=$4
 # ========== metadata ========== #
 
 mkdir -p $work_dir/$model/$dataset
