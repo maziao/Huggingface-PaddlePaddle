@@ -219,6 +219,8 @@ class LlamaAttention(paddle.nn.Layer):
             key = paddle.concat(x=(past_key, key), axis=-2)
             value = paddle.concat(x=(past_value, value), axis=-2)
 
+        past_key_values = (key, value) if use_cache else None
+
         key = repeat_kv(key, self.config.n_head // self.config.n_key_value_head)
         value = repeat_kv(value, self.config.n_head // self.config.n_key_value_head)
 
@@ -237,5 +239,5 @@ class LlamaAttention(paddle.nn.Layer):
         return MultiHeadKeyValueAttentionOutput(
             attn_output=attn_output,
             attn_weights=attn_weights if output_attentions else None,
-            layer_present=(key, value) if use_cache else None
+            layer_present=past_key_values
         )
