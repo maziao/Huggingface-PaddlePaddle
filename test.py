@@ -1,3 +1,4 @@
+import time
 import yaml
 import paddle
 import os.path
@@ -10,6 +11,7 @@ from config import AutoConfig
 from dataset import build_dataset
 from modules.model import LM_HEAD_MODEL
 from utils.registry import build_from_config
+from utils.calc_rep import calculate_rep
 
 import logging.config
 
@@ -51,6 +53,7 @@ def eval(model, eval_dataloader, tokenizer):
         num_valid_tokens += valid_mask.sum().item()
 
         bar.update(1)
+    logger.info(f"Perplexity and accuracy in validation:")
     logger.info({"ppl": np.exp(np.mean(loss_list)), "acc": num_correct_tokens / num_valid_tokens})
 
 
@@ -63,6 +66,21 @@ def test(args):
 
     with open(args.log_config) as f:
         log_cfg = yaml.load(f, Loader=yaml.FullLoader)
+        default_log_file = os.path.join(
+            './log',
+            f"test-{os.path.basename(os.path.dirname(args.pretrained_model_path))}-{args.dataset}-{time.strftime('%Y%m%d-%H%M%S')}.log"
+        )
+        log_cfg['handlers']['file']['filename'] = default_log_file
+        if args.log_file is not None:
+            log_dir = os.path.dirname(args.log_file)
+            if not os.path.exists(log_dir):
+                try:
+                    os.makedirs(log_dir)
+                    log_cfg['handlers']['file']['filename'] = args.log_file
+                except FileExistsError or OSError:
+                    logger.error(f"[!] Error: argument `log_file` is not valid, adopt default log file path instead.")
+            else:
+                log_cfg['handlers']['file']['filename'] = args.log_file
         logging.config.dictConfig(log_cfg)
 
     """
@@ -87,7 +105,7 @@ def test(args):
     logger.info(f"[!] Loading dataset ...")
     dataset_cfg = AutoConfig.from_yaml(os.path.join('./config/dataset_config/', f"{args.dataset.lower()}.yaml"))
     dataset_cfg.tokenizer = tokenizer
-    dataset_cfg.split = 'valid'
+    dataset_cfg.split = 'test'
     dataset = build_dataset(dataset_cfg)
     dataloader = paddle.io.DataLoader(dataset, batch_size=1, shuffle=False)
 
@@ -115,16 +133,18 @@ def test(args):
     Generation
     """
     if args.generation_len is not None and args.generation_len > 0:
+        generated_token_list = []
         for batch_id, data in enumerate(dataloader):
             past_key_values = None
             input_ids = data['input_ids']
             generated_ids = []
             for i in range(args.generation_len):
-                output = model(
-                    input_ids,
-                    past_key_values=past_key_values,
-                    output_key_values=True
-                )
+                with paddle.no_grad():
+                    output = model(
+                        input_ids,
+                        past_key_values=past_key_values,
+                        output_key_values=True
+                    )
                 past_key_values = output.past_key_values
                 input_ids = paddle.argmax(output.logit[:, -1], axis=-1, keepdim=True)
                 generated_ids.append(input_ids)
@@ -132,6 +152,10 @@ def test(args):
             for j, sample in enumerate(generated_ids):
                 generated_text = tokenizer.decode(sample, skip_special_tokens=True).replace('\n', ' ')
                 logger.info(f"Batch {batch_id + 1} / {len(dataloader)}: {generated_text}")
+                generated_token_list.append(sample)
+        rep_result = calculate_rep(generated_token_list)
+        logger.info(f"Repetition metrics for generated text:")
+        logger.info(str(rep_result))
 
 
 if __name__ == '__main__':
@@ -139,6 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, choices=['wikitext-103', 'cnn_dailymail'])
     parser.add_argument('--pretrained-model-path', type=str, default=None)
     parser.add_argument('--generation-len', type=int, default=None)
+    parser.add_argument('--log-file', type=str, default=None)
     parser.add_argument('--log-config', type=str, default='./config/log_config/_base_.yaml')
     args = parser.parse_args()
     test(args)

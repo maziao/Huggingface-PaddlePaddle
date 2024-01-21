@@ -1,3 +1,4 @@
+import time
 import yaml
 import paddle
 import os.path
@@ -29,6 +30,21 @@ def train(args):
     """
     with open(args.log_config) as f:
         log_cfg = yaml.load(f, Loader=yaml.FullLoader)
+        default_log_file = os.path.join(
+            './log',
+            f"train-{args.model_name}-{args.dataset}-{args.criterion}-{time.strftime('%Y%m%d-%H%M%S')}.log"
+        )
+        log_cfg['handlers']['file']['filename'] = default_log_file
+        if args.log_file is not None:
+            log_dir = os.path.dirname(args.log_file)
+            if not os.path.exists(log_dir):
+                try:
+                    os.makedirs(log_dir)
+                    log_cfg['handlers']['file']['filename'] = args.log_file
+                except FileExistsError or OSError:
+                    logger.error(f"[!] Error: argument `log_file` is not valid, adopt default log file path instead.")
+            else:
+                log_cfg['handlers']['file']['filename'] = args.log_file
         logging.config.dictConfig(log_cfg)
 
     """
@@ -190,6 +206,7 @@ if __name__ == '__main__':
                                  'unlikelihood_seq'])
     parser.add_argument('--pretrained-model-path', type=str, default=None)
     parser.add_argument('--save-dir', type=str, default=None)
+    parser.add_argument('--log-file', type=str, default=None)
     parser.add_argument('--log-config', type=str, default='./config/log_config/_base_.yaml')
     parser.add_argument('--run-config', type=str, default='./config/run_config/_base_.yaml')
     args = parser.parse_args()

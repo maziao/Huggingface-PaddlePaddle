@@ -1,4 +1,5 @@
 import json
+
 import numpy as np
 from tqdm import tqdm
 from nltk import ngrams
@@ -9,8 +10,7 @@ def calculate_rep_w(text_list, w=16):
     # code borrowed from paper: A Theoretical Analysis of the Repetition Problem in Text Generation
     # tokens are the BPE tokens from this paper: NEURAL TEXT DEGENERATION WITH UNLIKELIHOOD TRAINING
     rep_w = []
-    for text in tqdm(text_list, desc=f"Calculating rep-w"):
-        tokens = text.split()
+    for tokens in tqdm(text_list, desc=f"Calculating rep-w"):
         rep_w_single = 0
         for idx in range(1, len(tokens)):
             t = tokens[idx]
@@ -29,13 +29,12 @@ def calculate_rep_w(text_list, w=16):
 # https://github.com/fuzihaofzh/repetition-problem-nlg/blob/f0f80ea986d288fb5a76f48d4d16ddb60cace575/src/eval_metrics.py#L133
 def calculate_rep_r(text_list):
     rep_r_list = []
-    for text in tqdm(text_list, desc=f"Calculating rep-r"):
-        tokens = text.split()
+    for tokens in tqdm(text_list, desc=f"Calculating rep-r"):
         if len(tokens) < 2:
             rep_r_list.append(0)
         counter = {}
         for j in range(len(tokens) - 1):
-            gm = ' '.join(tokens[j: j + 2])
+            gm = '%s %s' % (tokens[j], tokens[j + 1])
             counter[gm] = counter[gm] + 1 if gm in counter else 1
         label = [0] * len(tokens)
         for i in range(1, len(tokens)):
@@ -49,33 +48,39 @@ def calculate_rep_r(text_list):
     return rep_r
 
 
-def compute_repetition_ratio(text_list):
+def calculate_rep_n(text_list):
     ngram_list = [2, 3, 4]
     results = {i: {'num_rep': [], 'num_total': []} for i in ngram_list}
-    for text in tqdm(text_list, desc=f"Calculating repetition ratio"):
-        rest_dict = compute_instance(text, ngram_list)
+    for tokens in tqdm(text_list, desc=f"Calculating repetition ratio"):
+        rest_dict = compute_instance(tokens, ngram_list)
         for n, (num_rep, num_total) in rest_dict.items():
             results[n]['num_rep'].append(num_rep)
             results[n]['num_total'].append(num_total)
-    final = {f'{i}': -1 for i in ngram_list}
+    final = {f"rep-{i}": -1 for i in ngram_list}
     for n, item in results.items():
         a = sum(item['num_rep'])
         b = sum(item['num_total'])
-        final[f'{n}'] = str(round(100 * a / b, 4))
+        final[f"rep-{n}"] = 100 * a / b
     return final
 
 
-def compute_instance(text, ngram_list):
+def calculate_rep(text_list):
+    result = calculate_rep_n(text_list)
+    result['rep-w'] = calculate_rep_w(text_list)
+    result['rep-r'] = calculate_rep_r(text_list)
+    return result
+
+
+def compute_instance(tokens, ngram_list):
     res_dict = {}
     for n in ngram_list:
-        num_rep, num_total = eval_text(text, n)
+        num_rep, num_total = eval_text(tokens, n)
         res_dict[n] = (num_rep, num_total)
     return res_dict
 
 
-def eval_text(text, ngram):
-    token_list = text.split()
-    ngram_list = list(ngrams(token_list, ngram))
+def eval_text(tokens, ngram):
+    ngram_list = list(ngrams(tokens, ngram))
     ngram_set = set()
     counter = 0
     for item in ngram_list:
@@ -104,7 +109,7 @@ if __name__ == '__main__':
     for sample in data:
         generations.append(tokenizer.decode(sample))
 
-    rep_results = compute_repetition_ratio(generations)
+    rep_results = calculate_rep_n(generations)
     rep_w = calculate_rep_w(generations)
     rep_r = calculate_rep_r(generations)
     print(rep_results)
