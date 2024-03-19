@@ -1,0 +1,55 @@
+arch:
+  type: TransformerLMHeadModel
+  args:
+    transformer_config:
+      type: TransformerDecoderOnlyModel
+      args:
+        embed_config:
+          type: OPTEmbeddingBlock
+          args:
+            token_embed_config:
+              type: TokenEmbedding
+            pos_embed_config:
+              type: OPTLearnedPositionalEmbedding
+            p_drop_embed: 0.1
+        decoder_config:
+          type: TransformerDecoderBlock
+          args:
+            attn_config:
+              type: MultiHeadKeyValueAttention
+              args:
+                p_drop_attn: 0.1
+                p_drop_resid: 0.1
+                bias_attn: True
+                bias_proj: True
+                cross_attn: False
+                scale_dot_product: False
+                scale_layer_wise: False
+            mlp_config:
+              type: TransformerMLP
+              args:
+                act_fn_config:
+                  type: NewGELUActivation
+                p_drop_mlp: 0.1
+            ln_config:
+              type: LayerNorm
+        ln_config:
+          type: LayerNorm
+    lm_head_config:
+      type: TransformerLMHead
+      args:
+        do_transform: False
+
+models:
+  facebook/galactica-125m:
+    n_embed: 768
+    n_layer: 12
+    n_head: 12
+    head_size: 64
+    n_inner: 3072
+
+global_params:
+  n_vocab: 50000
+  n_pos: 2048
+  ln_eps: 1.0e-5
+  perform_query_scaling: True

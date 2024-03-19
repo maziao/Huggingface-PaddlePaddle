@@ -17,6 +17,9 @@ Convert HuggingFace code and pretrained models to a PaddlePaddle supported forma
 | Unlikelihood-Token | [Finetuned](https://huggingface.co/DataHammer/PaddlePaddle-UnlikelihoodTraining-Token-Level)                                 | Neural Text Generation with Unlikelihood Training                                           |
 | Unlikelihood-Seq   | [Finetuned](https://huggingface.co/DataHammer/PaddlePaddle-UnlikelihoodTraining-Sequence-Level)                              | Neural Text Generation with Unlikelihood Training                                           |
 | Qwen-1.5           | [Qwen/Qwen1.5-0.5B](https://huggingface.co/Qwen/Qwen1.5-0.5B)                                                                | Qwen Technical Report                                                                       |
+| GPT-SW3            | [AI-Sweden-Models/gpt-sw3-126m](https://huggingface.co/AI-Sweden-Models/gpt-sw3-126m)                                        | GPT-SW3: An Autoregressive Language Model for the Nordic Languages                          |
+| Galactica          | [facebook/galactica-125m](https://huggingface.co/facebook/galactica-125m)                                                    | Galactica: A Large Language Model for Science                                               |
+| DeepSeek LLM       | [deepseek-ai/deepseek-coder-1.3b-base](https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-base)                          | DeepSeek LLM: Scaling Open-Source Language Models with Longtermism                          |
 
 ## Procedures
 
