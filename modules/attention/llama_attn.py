@@ -47,12 +47,12 @@ class LlamaAttention(paddle.nn.Layer):
     def __init__(self, config: LlamaAttentionConfig):
         super().__init__()
         self.config = config
-        self.bias = paddle.tril(
-            paddle.ones(
-                shape=(config.n_pos, config.n_pos),
-                dtype='bool'
-            )
-        ).reshape([1, 1, config.n_pos, config.n_pos])
+        # self.bias = paddle.tril(
+        #     paddle.ones(
+        #         shape=(config.n_pos, config.n_pos),
+        #         dtype='bool'
+        #     )
+        # ).reshape([1, 1, config.n_pos, config.n_pos])
         self.q_proj = paddle.nn.Linear(
             in_features=config.n_embed,
             out_features=config.n_head * config.head_size,
@@ -138,15 +138,15 @@ class LlamaAttention(paddle.nn.Layer):
         """
         if not self.config.cross_attn:
             query_length, key_length = query.shape[-2], key.shape[-2]
-            if self.config.n_pos != 0:
-                causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
-            else:
-                causal_mask = paddle.tril(
-                    paddle.ones(
-                        shape=attn_weights.shape[-2:],
-                        dtype='bool'
-                    )
-                ).reshape([1, 1] + attn_weights.shape[-2:])
+            # if self.config.n_pos != 0:
+            #     causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
+            # else:
+            causal_mask = paddle.tril(
+                paddle.ones(
+                    shape=attn_weights.shape[-2:],
+                    dtype='bool'
+                )
+            ).reshape([1, 1] + attn_weights.shape[-2:])
             mask_value = paddle.finfo(attn_weights.dtype).min
             mask_value = paddle.full(shape=[], fill_value=mask_value, dtype=attn_weights.dtype)
             attn_weights = paddle.where(condition=causal_mask, x=attn_weights, y=mask_value)

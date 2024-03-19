@@ -97,3 +97,51 @@ class RotaryPositionEmbedding(paddle.nn.Layer):
         q_embed = (query * cos) + (rotate_half(query) * sin)
         k_embed = (key * cos) + (rotate_half(key) * sin)
         return q_embed, k_embed
+
+
+@EMBEDDING.register_module
+class MistralRotaryEmbedding(paddle.nn.Layer):
+    config_class = RotaryPositionEmbeddingConfig
+    
+    def __init__(self, config: RotaryPositionEmbeddingConfig):
+        super().__init__()
+
+        self.dim = config.head_size
+        self.max_position_embeddings = config.n_pos
+        self.base = config.base
+        inv_freq = 1.0 / (self.base ** (paddle.arange(0, self.dim, 2, dtype=paddle.int64).cast(paddle.float32) / self.dim))
+        self.register_buffer("inv_freq", inv_freq)
+
+        # Build here to make `torch.jit.trace` work.
+        self._set_cos_sin_cache(seq_len=config.n_pos, dtype=paddle.get_default_dtype())
+
+    def _set_cos_sin_cache(self, seq_len, dtype):
+        self.max_seq_len_cached = seq_len
+        t = paddle.arange(self.max_seq_len_cached, dtype=paddle.int64).cast(self.inv_freq.dtype)
+
+        freqs = paddle.outer(t, self.inv_freq)
+        # Different from paper, but it uses a different permutation in order to obtain the same calculation
+        emb = paddle.concat((freqs, freqs), axis=-1)
+        self.register_buffer("cos_cached", emb.cos().cast(dtype))
+        self.register_buffer("sin_cached", emb.sin().cast(dtype))
+
+    def forward(self, query, key, value, layer_past: List[paddle.Tensor] = None):
+        seq_len = query.shape[-2]
+        past_len = 0
+        if layer_past is not None:
+            past_len = layer_past[0].shape[-2]
+
+        # x: [bs, num_attention_heads, seq_len, head_size]
+        if seq_len > self.max_seq_len_cached:
+            self._set_cos_sin_cache(seq_len=seq_len, dtype=value.dtype)
+
+        position_ids = paddle.arange(start=past_len, end=past_len + seq_len, dtype='int64')
+        position_ids = position_ids.unsqueeze(axis=0).reshape([-1, seq_len])
+
+        cos = self.cos_cached[:seq_len].cast(value.dtype)
+        sin = self.sin_cached[:seq_len].cast(value.dtype)
+        cos = cos[position_ids].unsqueeze(1)
+        sin = sin[position_ids].unsqueeze(1)
+        q_embed = (query * cos) + (rotate_half(query) * sin)
+        k_embed = (key * cos) + (rotate_half(key) * sin)
+        return q_embed, k_embed

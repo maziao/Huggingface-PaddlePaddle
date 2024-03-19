@@ -4,8 +4,8 @@ Convert HuggingFace code and pretrained models to a PaddlePaddle supported forma
 
 ## Supported models
 
-| Family             | Converted Checkpoints                                                                                                        | Article                                                                                     | 
-|--------------------|------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Family             | Converted Checkpoints                                                                                                        | Article                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | GPT2               | [gpt2](https://huggingface.co/DataHammer/PaddlePaddle-GPT2)                                                                  | Language Models are Unsupervised Multitask Learners                                         |
 | GPT-Neo            | [EleutherAI/gpt-neo-125m](https://huggingface.co/DataHammer/PaddlePaddle-GPT-Neo-125M)                                       | GPT-NeoX-20B: An Open-Source Autoregressive Language Model                                  |
 | OPT                | [facebook/opt-125m](https://huggingface.co/DataHammer/PaddlePaddle-OPT-125M)                                                 | OPT: Open Pre-trained Transformer Language Models                                           |
@@ -16,6 +16,7 @@ Convert HuggingFace code and pretrained models to a PaddlePaddle supported forma
 | SimCTG             | [Finetuned](https://huggingface.co/DataHammer/PaddlePaddle-SimCTG)                                                           | A Contrastive Framework for Neural Text Generation                                          |
 | Unlikelihood-Token | [Finetuned](https://huggingface.co/DataHammer/PaddlePaddle-UnlikelihoodTraining-Token-Level)                                 | Neural Text Generation with Unlikelihood Training                                           |
 | Unlikelihood-Seq   | [Finetuned](https://huggingface.co/DataHammer/PaddlePaddle-UnlikelihoodTraining-Sequence-Level)                              | Neural Text Generation with Unlikelihood Training                                           |
+| Qwen-1.5           | [Qwen/Qwen1.5-0.5B](https://huggingface.co/Qwen/Qwen1.5-0.5B)                                                                | Qwen Technical Report                                                                       |
 
 ## Procedures
 
