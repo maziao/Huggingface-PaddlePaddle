@@ -20,6 +20,7 @@ Convert HuggingFace code and pretrained models to a PaddlePaddle supported forma
 | 12  | GPT-SW3            | [AI-Sweden-Models/gpt-sw3-126m](https://huggingface.co/AI-Sweden-Models/gpt-sw3-126m)                                        | GPT-SW3: An Autoregressive Language Model for the Nordic Languages                          |
 | 13  | Galactica          | [facebook/galactica-125m](https://huggingface.co/facebook/galactica-125m)                                                    | Galactica: A Large Language Model for Science                                               |
 | 14  | DeepSeek LLM       | [deepseek-ai/deepseek-coder-1.3b-base](https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-base)                          | DeepSeek LLM: Scaling Open-Source Language Models with Longtermism                          |
+| 15  | InternLM2          | [internlm/internlm2-1_8b](https://huggingface.co/internlm/internlm2-1_8b)                                                    | [InternLM - GitHub Repo](https://github.com/InternLM/InternLM)                              |
 
 ## Procedures
 

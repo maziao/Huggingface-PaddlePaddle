@@ -1,0 +1,58 @@
+arch:
+  type: TransformerLMHeadModel
+  args:
+    transformer_config:
+      type: TransformerDecoderOnlyModel
+      args:
+        embed_config:
+          type: TransformerEmbeddingBlock
+          args:
+            token_embed_config:
+              type: TokenEmbedding
+            p_drop_embed: 0.0
+        decoder_config:
+          type: TransformerDecoderBlock
+          args:
+            attn_config:
+              type: LlamaAttention
+              args:
+                p_drop_attn: 0.0
+                p_drop_resid: 0.0
+                bias_attn: False
+                bias_proj: False
+                cross_attn: False
+                scale_dot_product: True
+                scale_layer_wise: False
+                rope_config:
+                  type: RotaryPositionEmbedding
+                  args:
+                    base: 1000000
+            mlp_config:
+              type: LlamaMLP
+              args:
+                n_embed: ~
+                n_inner: ~
+                act_fn_config:
+                  type: SiLUActivation
+            ln_config:
+              type: LlamaRMSNorm
+        ln_config:
+          type: LlamaRMSNorm
+    lm_head_config:
+      type: TransformerLMHead
+      args:
+        do_transform: False
+
+models:
+  internlm/internlm2-1_8b:
+    n_embed: 2048
+    n_layer: 24
+    n_head: 16
+    n_key_value_head: 8
+    head_size: 128
+    n_inner: 8192
+
+global_params:
+  n_vocab: 92544
+  n_pos: 32768
+  ln_eps: 1.0e-05
