@@ -1,0 +1,59 @@
+arch:
+  type: TransformerLMHeadModel
+  args:
+    transformer_config:
+      type: TransformerDecoderOnlyModel
+      args:
+        embed_config:
+          type: TransformerEmbeddingBlock
+          args:
+            token_embed_config:
+              type: TokenEmbedding
+            p_drop_embed: 0.0
+        decoder_config:
+          type: TransformerDecoderBlock
+          args:
+            attn_config:
+              type: GPTNeoXAttention
+              args:
+                p_drop_attn: 0.0
+                p_drop_resid: 0.0
+                bias_attn: True
+                bias_proj: True
+                cross_attn: False
+                scale_dot_product: True
+                scale_layer_wise: False
+                rope_config:
+                  type: MistralRotaryEmbedding
+            mlp_config:
+              type: TransformerMLP
+              args:
+                n_embed: ~
+                n_inner: ~
+                act_fn_config:
+                  type: NewGELUActivation
+                p_drop_mlp: 0.0
+            ln_config:
+              type: LayerNorm
+            use_parallel_residual: True
+        ln_config:
+          type: LayerNorm
+    lm_head_config:
+      type: TransformerLMHead
+      args:
+        do_transform: False
+
+models:
+  EleutherAI/pythia-70m:
+    n_embed: 512
+    n_layer: 6
+    n_head: 8
+    n_key_value_head: 8
+    head_size: 64
+    n_inner: 2048
+    rotary_head_size: 16
+
+global_params:
+  n_vocab: 50304
+  n_pos: 2048
+  ln_eps: 1.0e-05
