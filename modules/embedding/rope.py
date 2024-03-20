@@ -40,6 +40,7 @@ class RotaryPositionEmbeddingConfig(BaseConfig):
 
 @EMBEDDING.register_module
 class RotaryPositionEmbedding(paddle.nn.Layer):
+    # TODO: support customizable rotary dim
     config_class = RotaryPositionEmbeddingConfig
 
     def __init__(self, config: RotaryPositionEmbeddingConfig):
@@ -99,14 +100,36 @@ class RotaryPositionEmbedding(paddle.nn.Layer):
         return q_embed, k_embed
 
 
+@dataclass
+class MistralRotaryEmbeddingConfig(BaseConfig):
+    rotary_head_size: int
+    n_pos: int
+    base: int = 10000
+    scaling_type: Optional[str] = None
+    scaling_factor: float = None
+
+    def __post_init__(self):
+        scaling_types = [None, 'linear', 'ntk']
+        if self.scaling_type not in scaling_types:
+            logger.warn(f"Scaling type of RoPE should be one of {scaling_types}, but got {self.scaling_type}. Set it "
+                        f"to None for safe training.")
+            self.scaling_type = None
+
+        if self.scaling_type is not None and (self.scaling_factor is None or self.scaling_factor <= 0.0):
+            logger.warn(f"Scaling factor should be a positive float point number when scaling type is set to "
+                        f"{self.scaling_type}, but got {self.scaling_factor}. Set scaling type to None for safe "
+                        f"training.")
+            self.scaling_type = None
+
 @EMBEDDING.register_module
 class MistralRotaryEmbedding(paddle.nn.Layer):
-    config_class = RotaryPositionEmbeddingConfig
+    # TODO: support linear and ntk scaling
+    config_class = MistralRotaryEmbeddingConfig
     
-    def __init__(self, config: RotaryPositionEmbeddingConfig):
+    def __init__(self, config: MistralRotaryEmbeddingConfig):
         super().__init__()
 
-        self.dim = config.head_size
+        self.dim = config.rotary_head_size
         self.max_position_embeddings = config.n_pos
         self.base = config.base
         inv_freq = 1.0 / (self.base ** (paddle.arange(0, self.dim, 2, dtype=paddle.int64).cast(paddle.float32) / self.dim))

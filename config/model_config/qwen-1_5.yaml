@@ -51,6 +51,7 @@ models:
     n_key_value_head: 16
     head_size: 64
     n_inner: 2816
+    rotary_head_size: 64
 
 global_params:
   n_vocab: 151936
