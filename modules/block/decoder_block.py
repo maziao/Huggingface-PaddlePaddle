@@ -16,6 +16,7 @@ class TransformerDecoderBlockConfig(BaseConfig):
     n_embed: int
     post_norm: bool = False
     add_cross_attn: bool = False
+    use_parallel_residual: bool = False
 
 
 @dataclass
@@ -99,13 +100,16 @@ class TransformerDecoderBlock(paddle.nn.Layer):
             if self.config.post_norm:
                 hidden_states = self.ln_cross_attn(hidden_states)
 
+        # TODO: make parallel residual logic clearer
+        mlp_input = hidden_states if not self.config.use_parallel_residual else residual
+        
         residual = hidden_states
 
         if not self.config.post_norm:
-            hidden_states = self.ln_2(hidden_states)
+            mlp_input = self.ln_2(mlp_input)
 
-        hidden_states = self.mlp(hidden_states)
-        hidden_states = hidden_states + residual
+        mlp_output = self.mlp(mlp_input)
+        hidden_states = mlp_output + residual
 
         if self.config.post_norm:
             hidden_states = self.ln_2(hidden_states)
