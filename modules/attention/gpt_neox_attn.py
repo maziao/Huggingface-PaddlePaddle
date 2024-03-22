@@ -138,12 +138,30 @@ class GPTNeoXAttention(paddle.nn.Layer):
         Return:
             query, key, value tensor, size [batch_size, n_head, seq_len, head_size]
         """
-        new_shape = tensor.shape[:-1] + [self.config.n_head, 3 * self.config.head_size]
+        query, key, value = tensor.split(3, axis=2)
+        new_shape = tensor.shape[:-1] + [self.config.n_head, self.config.head_size]
+        query = query.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        key = key.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        value = value.reshape(new_shape).transpose(perm=[0, 2, 1, 3])
+        return query, key, value
+
+    def _split_heads_bloom(self, tensor):
+        """
+        Splits 3 * n_embed into 3 n_head * head_size (BigScience Bloom approach).
+
+        Args:
+            tensor: fused query, key, value tensor, size [batch_size, seq_len, 3 * n_embed]
+        Return:
+            query, key, value tensor, size [batch_size, n_head, seq_len, head_size]
+        """
+        new_shape = tensor.shape[:-1] + [self.config.n_head, 3, self.config.head_size]
         tensor = tensor.reshape(new_shape)
-        
-        query = tensor[..., :self.config.head_size].transpose(perm=[0, 2, 1, 3])
-        key = tensor[..., self.config.head_size: 2 * self.config.head_size].transpose(perm=[0, 2, 1, 3])
-        value = tensor[..., 2 * self.config.head_size:].transpose(perm=[0, 2, 1, 3])
+        query, key, value = tensor[..., 0, :], tensor[..., 1, :], tensor[..., 2, :]
+
+        query = query.transpose(perm=[0, 2, 1, 3])
+        key = key.transpose(perm=[0, 2, 1, 3])
+        value = value.transpose(perm=[0, 2, 1, 3])
+
         return query, key, value
 
     def _merge_heads(self, tensor):
@@ -173,7 +191,10 @@ class GPTNeoXAttention(paddle.nn.Layer):
     ):
         fused_qkv = self.c_attn(hidden_states)
 
-        query, key, value = self._split_heads(fused_qkv)
+        if not self.config.perform_bloom_split_head:
+            query, key, value = self._split_heads(fused_qkv)
+        else:
+            query, key, value = self._split_heads_bloom(fused_qkv)
 
         kv_seq_len = key.shape[-2]
         if layer_past is not None:
@@ -206,8 +227,6 @@ class GPTNeoXAttention(paddle.nn.Layer):
         attn_output = self._merge_heads(attn_output)
         attn_output = self.c_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
-        
-        print(f"attn_output: {attn_output}")
 
         return MultiHeadKeyValueAttentionOutput(
             attn_output=attn_output,

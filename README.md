@@ -22,6 +22,7 @@ Convert HuggingFace code and pretrained models to a PaddlePaddle supported forma
 | 14  | DeepSeek LLM       | [deepseek-ai/deepseek-coder-1.3b-base](https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-base)                          | DeepSeek LLM: Scaling Open-Source Language Models with Longtermism                          |
 | 15  | InternLM2          | [internlm/internlm2-1_8b](https://huggingface.co/internlm/internlm2-1_8b)                                                    | [InternLM - GitHub Repo](https://github.com/InternLM/InternLM)                              |
 | 16  | Pythia             | [EleutherAI/pythia-70m](https://huggingface.co/EleutherAI/pythia-70m)                                                        | Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling             |
+| 17  | Phi-1.5            | [microsoft/phi-1_5](https://huggingface.co/microsoft/phi-1_5)                                                                | Textbooks Are All You Need II: phi-1.5 technical report                                     |
 
 ## Procedures
 

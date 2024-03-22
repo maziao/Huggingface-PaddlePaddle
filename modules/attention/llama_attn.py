@@ -38,6 +38,7 @@ class LlamaAttentionConfig(BaseConfig):
     scale_layer_wise: bool = False
     layer_idx: int = None
     rope_config: Any = None
+    perform_bloom_split_head: bool = False
 
 
 @ATTENTION.register_module
