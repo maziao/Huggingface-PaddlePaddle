@@ -11,7 +11,7 @@ arch:
               type: TokenEmbedding
             p_drop_embed: 0.0
         decoder_config:
-          type: TransformerDecoderBlock
+          type: ParallelTransformerDecoderBlock
           args:
             attn_config:
               type: GPTNeoXAttention
@@ -35,7 +35,6 @@ arch:
                 p_drop_mlp: 0.0
             ln_config:
               type: LayerNorm
-            use_parallel_residual: True
         ln_config:
           type: LayerNorm
     lm_head_config:
@@ -52,6 +51,7 @@ models:
     head_size: 64
     n_inner: 2048
     rotary_head_size: 16
+    perform_bloom_split_head: True
 
 global_params:
   n_vocab: 50304

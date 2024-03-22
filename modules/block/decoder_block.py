@@ -16,7 +16,7 @@ class TransformerDecoderBlockConfig(BaseConfig):
     n_embed: int
     post_norm: bool = False
     add_cross_attn: bool = False
-    use_parallel_residual: bool = False
+    share_layer_norm: bool = False
 
 
 @dataclass
@@ -100,19 +100,81 @@ class TransformerDecoderBlock(paddle.nn.Layer):
             if self.config.post_norm:
                 hidden_states = self.ln_cross_attn(hidden_states)
 
-        # TODO: make parallel residual logic clearer
-        mlp_input = hidden_states if not self.config.use_parallel_residual else residual
-        
         residual = hidden_states
 
         if not self.config.post_norm:
-            mlp_input = self.ln_2(mlp_input)
+            hidden_states = self.ln_2(hidden_states)
 
-        mlp_output = self.mlp(mlp_input)
-        hidden_states = mlp_output + residual
+        hidden_states = self.mlp(hidden_states)
+        hidden_states = hidden_states + residual
 
         if self.config.post_norm:
             hidden_states = self.ln_2(hidden_states)
+
+        return TransformerDecoderBlockOutput(
+            hidden_states=hidden_states,
+            attn_weights=attn_outputs.attn_weights if output_attentions else None,
+            layer_present=attn_outputs.layer_present if use_cache else None
+        )
+
+
+@DECODER_BLOCK.register_module
+class ParallelTransformerDecoderBlock(paddle.nn.Layer):
+    config_class = TransformerDecoderBlockConfig
+
+    def __init__(self, config: TransformerDecoderBlockConfig):
+        super().__init__()
+        self.config = config
+        self.ln_1 = build_norm(config=config.ln_config)
+        self.self_attn = build_attention(config=config.attn_config)
+        if config.add_cross_attn:
+            self.ln_cross_attn = build_norm(config=config.ln_config)
+            self.cross_attn = build_attention(config=config.attn_config)
+        if not config.share_layer_norm and not config.post_norm:
+            self.ln_2 = build_norm(config=config.ln_config)
+        self.mlp = build_mlp(config=config.mlp_config)
+
+    def forward(
+            self,
+            hidden_states: Optional[Tuple[paddle.Tensor]],
+            layer_past: Optional[Tuple[paddle.Tensor, paddle.Tensor]] = None,
+            attention_mask: Optional[paddle.Tensor] = None,
+            head_mask: Optional[paddle.Tensor] = None,
+            linear_bias: Optional[paddle.Tensor] = None,
+            encoder_hidden_states: Optional[paddle.Tensor] = None,
+            encoder_attention_mask: Optional[paddle.Tensor] = None,
+            use_cache: Optional[bool] = False,
+            output_attentions: Optional[bool] = False
+    ):
+        if not self.config.post_norm:
+            attn_input = self.ln_1(hidden_states)
+            if self.config.share_layer_norm:
+                mlp_input = attn_input
+            else:
+                mlp_input = self.ln_2(hidden_states)
+        else:
+            attn_input = hidden_states
+            mlp_input = hidden_states
+
+        attn_outputs = self.self_attn(
+            hidden_states=attn_input,
+            layer_past=layer_past,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            linear_bias=linear_bias,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
+            use_cache=use_cache,
+            output_attentions=output_attentions
+        )
+        attn_output = attn_outputs.attn_output
+        
+        mlp_output = self.mlp(mlp_input)
+            
+        hidden_states = attn_output + mlp_output + hidden_states
+
+        if self.config.post_norm:
+            hidden_states = self.ln_1(hidden_states)
 
         return TransformerDecoderBlockOutput(
             hidden_states=hidden_states,
