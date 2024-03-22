@@ -50,10 +50,11 @@ def train(args):
     """
     Loading Configuration
     """
-    logger.info(f"[!] Loading model config from {args.model_config} ...")
     if args.pretrained_model_path is not None:
+        logger.info(f"[!] Loading model config from {args.pretrained_model_path} ...")
         cfg = AutoConfig.from_pretrained(args.pretrained_model_path)
     else:
+        logger.info(f"[!] Loading model config from {args.model_config} ...")
         cfg = AutoConfig.from_yaml(args.model_config, model_name=args.model_name)
     logger.info(cfg)
 
