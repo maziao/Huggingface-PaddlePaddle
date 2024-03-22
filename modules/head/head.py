@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class TransformerLMHeadConfig(BaseConfig):
     n_vocab: int
     n_embed: int
+    bias_lm_head: bool = False
     perform_transform: bool = False
     act_fn_config: Any = None
     ln_config: Any = None
@@ -37,7 +38,7 @@ class TransformerLMHead(paddle.nn.Layer):
             self.fc_trans = paddle.nn.Linear(in_features=config.n_embed, out_features=config.n_embed, bias_attr=True)
             self.act_fn = build_activation(config.act_fn_config)
             self.ln_trans = build_norm(config.ln_config)
-        self.fc_pred = paddle.nn.Linear(in_features=config.n_embed, out_features=config.n_vocab, bias_attr=False)
+        self.fc_pred = paddle.nn.Linear(in_features=config.n_embed, out_features=config.n_vocab, bias_attr=config.bias_lm_head)
 
     def forward(self, hidden_states: paddle.Tensor) -> paddle.Tensor:
         if self.config.perform_transform:

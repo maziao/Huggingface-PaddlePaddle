@@ -20,7 +20,7 @@ class MLPConfig(BaseConfig):
     n_embed: int
     n_inner: int
     act_fn_config: Any
-    p_drop_mlp: float = None
+    p_drop_mlp: float = 0.0
 
     def __post_init__(self):
         if self.n_inner is None:
