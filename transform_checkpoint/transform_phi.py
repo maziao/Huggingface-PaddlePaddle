@@ -54,8 +54,8 @@ def transform_phi(state_dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hf-repo', type=str, default='TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T')
-    parser.add_argument('--pd-repo', type=str)
+    parser.add_argument('--hf-repo', type=str, default='microsoft/phi-1_5')
+    parser.add_argument('--pd-repo', type=str, required=True)
     args = parser.parse_args()
 
     print(f"[!] Loading tokenizer from {args.hf_repo} ...")

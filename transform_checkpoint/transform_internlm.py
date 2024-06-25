@@ -68,7 +68,7 @@ def transform_llama(state_dict):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hf-repo', type=str, default='TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T')
+    parser.add_argument('--hf-repo', type=str, default='internlm/internlm2-1_8b')
     parser.add_argument('--pd-repo', type=str)
     args = parser.parse_args()
 

@@ -47,7 +47,7 @@ def transform_gpt_neox(state_dict: dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hf-repo', type=str, default='EleutherAI/gpt-neo-125m')
+    parser.add_argument('--hf-repo', type=str, default='EleutherAI/pythia-70m')
     parser.add_argument('--pd-repo', type=str)
     args = parser.parse_args()
 
